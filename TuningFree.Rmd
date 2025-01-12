@@ -1,0 +1,98 @@
+---
+title: "Tuning-Parameter-Free Methods"
+author: "Jin"
+date: "2025-01-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Single-Ancestry PRS Training with Tuning-Parameter-Free Methods
+
+Supported methods:
+
+LDpred2-auto
+DBSLMM
+
+
+## Data Preparation
+
+Prepare and save the input GWAS summary data file in `/PennPRS/${input_GWAS_path}` with file name `${ancestry}_${trait}.txt`. Please refer to the `example_data` in [Example](#example) to prepare the input data files.
+
+Required input GWAS summary data format:
+```
+CHR	SNP	A1	A2	MAF	BETA	SE	P	N
+1	rs3131969	A	G	0.129396	-0.00478692	0.0105404	0.64972	32586
+1	rs2286139	C	T	0.136484	0.0018321	0.0105153	0.861684	31359
+1	rs12562034	A	G	0.103985	-0.0016805	0.0114914	0.883732	32827
+```
+The following columns (and column names) are required for the GWAS summary data files:
+
+ 1. CHR: chromosome, 1, 2, ..., or 22.
+ 2. SNP: SNP RSID (in the format of rsXXXX). If only the position information is available, please impute RSID using reference genotype data of the same genome build.
+ 3. A1: effect allele (the allele which BETA corresponds to).
+ 4. A2: alternative/Other allele.
+ 5. BETA: SNP effect. For binary traits, beta is the log of odds ratio (logOR) from logistic regressions.
+ 6. SE: standard error of beta.
+ 7. P: p-value.
+ 8. N: GWAS sample size by SNP. For binary traits, it is the effective sample size: 4 / (1 / N_control + 1 / N_case); and for continuous traits, it is the total sample size.
+
+
+
+## Preparing SingleAncestry.sh
+
+Prepare a .sh file for submitting job with the following content and save it as `/PennPRS/job_submission/SingleAncestry.sh`. Example SingleAncestry.sh file:
+
+```
+#!/bin/bash
+
+#SBATCH -A bingxin 
+#SBATCH --time=24:00:00
+#SBATCH --job-name=pumas-buxin
+#SBATCH --mail-user=jin.jin@pennmedicine.upenn.edu
+#SBATCH --mail-type=ALL
+#SBATCH --mem=100g                # memory per job
+#SBATCH --nodes=1                # # node per job
+#SBATCH --cpus-per-task=17
+
+# Load modules
+module load r/4.3.1
+
+PennPRS_path=$1
+homedir=$2
+input_GWAS_path=$3
+submissionID=$4
+methods=$5
+trait=$6
+race=$7
+ensemble=$8
+NCORES=$9
+
+Rscript ${PennPRS_path}/code/single-ancestry-step1.R \
+--PennPRS_path ${PennPRS_path} \
+--homedir ${homedir} \
+--input_GWAS_path ${input_GWAS_path} \
+--submissionID ${submissionID} \
+--methods ${methods} \
+--trait ${trait} \
+--race ${race} \
+--ensemble ${ensemble} \
+--NCORES ${NCORES} \
+
+if [ $? -eq 0 ]; then
+# If the first script succeeded, run the second script
+Rscript ${PennPRS_path}code/single-ancestry-step2.R \
+--PennPRS_path ${PennPRS_path} \
+--homedir ${homedir} \
+--submissionID ${submissionID} \
+--methods ${methods} \
+--trait ${trait} \
+--race ${race} \
+--ensemble ${ensemble}
+else
+  # If the first script failed, print an error message and do not proceed
+  echo "Error: First script failed. Second script will not run."
+fi
+```

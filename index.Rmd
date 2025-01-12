@@ -1,0 +1,93 @@
+---
+title: "PennPRS Offline Pipeline"
+author: "Jin"
+date: "2025-01-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+On this Github page, we present the offline version of [PennPRS](https://pennprs.org/), a cloud-based platform dedicated to online PRS model training.
+
+To use the tool, please follow the instructions in [Getting Started](#gettingstarted) to download the required files, then try our example code in [Example](#example). Please refer to the [paper](https://www.cell.com/cell-genomics/fulltext/S2666-979X(24)00095-8) or contact our team at pennprs@googlegroups.com for details.
+
+
+The PennPRS offline pipeline provides three modules that support PRS model development based on various PRS methods:
+
+[Single-Ancestry Analysis with Pseudo Training](https://github.com/Jin93/PennPRS/SingleAncestry.html)
+Supported methods:
+
+C+T-pseudo
+Lassosum2-pseudo
+LDpred2-pseudo
+PRS-CS-pseudo
+Ensemble PRS combining PRS trained by different methods
+
+
+[Single-Ancestry Analysis with Tuning-Parameter-Free Methods](https://github.com/Jin93/PennPRS/TuningFree.html)
+Supported methods:
+
+LDpred2-auto
+DBSLMM
+
+([Multi-Ancestry Analysis with Pseudo Training](https://github.com/Jin93/PennPRS/MultiAncestry.html))
+
+PRS-CSx
+MUSSEL
+PROSPER
+</br>
+
+The pipeline supports GWAS summary data-based PRS model development for:
+  1. ~ 1.2 million [HapMap3](https://www.broadinstitute.org/medical-and-population-genetics/hapmap-3) SNPs.
+  2. Five [super populations](https://useast.ensembl.org/Help/View?id=171): European (EUR), African/African America (AFR), Hispanic/Latino/Admixed American (AMR), East Asian (EAS), and South Asian (SAS).
+  
+## Version History
+- [ ] __January 5, 2025:__  The PennPRS offline pipeline was made available on Github.
+</br>
+
+
+## Getting Started
+
+1. Clone the Github repository by `git clone https://github.com/Jin93/PennPRS.git`. From now on, we will refer to the unzipped folder as `/PennPRS/`.
+
+If PLINK or PLINK2 in `/PennPRS/software/` is not working, please follow the instructions for [PLINK1.9](https://www.cog-genomics.org/plink/) and [PLINK2](https://www.cog-genomics.org/plink/2.0/) to re-install them under `/PennPRS/software/`.
+
+2. Create a folder `/LD/` under `/PennPRS/`. Download LD reference data files for different populations and save the uncompressed folder(s) in `/PennPRS/LD/`.
+
+[EUR LD information](https://www.dropbox.com/scl/fi/528tottl04olb8bxur6ll/EUR.tar.gz?rlkey=56z2huktbkm45d7wzr4ejc167&st=jc6gddou&dl=0) (~30.45G), decompress by `tar -zxvf EUR.tar.gz`
+
+[AFR LD information](https://www.dropbox.com/scl/fi/la62b7e05er7tto57sz4p/AFR.tar.gz?rlkey=86bu0dnp5czzh05w0h476y37l&st=o4cmyofp&dl=0) (~39.66G), decompress by `tar -zxvf AFR.tar.gz`
+
+[AMR LD information](https://www.dropbox.com/scl/fi/kckk37guroq1apf9t2oac/AMR.tar.gz?rlkey=mv2svghxjpchynvnm8qeerskq&st=ymd54ypj&dl=0) (~36.33G), decompress by `tar -zxvf AMR.tar.gz`
+
+[EAS LD information](https://www.dropbox.com/scl/fi/s0a6mqpi14qdqvop871mg/EAS.tar.gz?rlkey=jeodg6upmbi2kifuk9iijrjvg&st=3djfh3fx&dl=0) (~23.20G), decompress by `tar -zxvf EAS.tar.gz`
+
+[SAS LD information](https://www.dropbox.com/scl/fi/5b8937g2wb25q2gomvplr/SAS.tar.gz?rlkey=c9c6v7kadansbdee2xnyr297l&st=h3i4di6d&dl=0) (~24.94G), decompress by `tar -zxvf SAS.tar.gz`
+
+
+Each unzipped folder contains the following LD information needed for implementation of various supported PRS methods:
+
+`./1KGref_plinkfile/`: raw LD reference genotype data.
+
+`./LD_1kg/`: LD information by LD block required for subsampling.
+
+`./LDpred2_lassosum2_corr_1kg/`: Pre-computed LD matrices and SNP information by LD block for implementing [lassosum2](https://privefl.github.io/bigsnpr/articles/LDpred2.html), [LDpred2](https://privefl.github.io/bigsnpr/articles/LDpred2.html), [PROSPER](https://github.com/Jingning-Zhang/PROSPER), and [MUSSEL](https://github.com/Jin93/MUSSEL).
+
+`./LD/`: Pre-computed LD matrices and SNP information by LD block, which are input files for [MUSSEL](https://github.com/Jin93/MUSSEL).
+
+`./map/`: SNP information (SNP ID, alleles) for mapping alleles between LD reference data and GWAS summary data for implementing [lassosum2](https://privefl.github.io/bigsnpr/articles/LDpred2.html), [LDpred2](https://privefl.github.io/bigsnpr/articles/LDpred2.html), [PROSPER](https://github.com/Jingning-Zhang/PROSPER), and [MUSSEL](https://github.com/Jin93/MUSSEL).
+
+
+3. Before running the pipeline, please consider the following quality control (QC) steps for the GWAS summary data:
+
+ 1. Only keep the biallelic [HapMap3 SNPs](https://www.dropbox.com/scl/fi/sktcg9u52jw1clvlj9qwx/hapmap3rsid.txt?rlkey=bwfqpqf9br4ptniee4wjd92c4&st=kefhjw6g&dl=0) to avoid troubles caused by reading huge files (e.g., > 8 million SNPs) in R.
+ 2. Remove SNPs with minor allele frequencies (MAF) lower than 1% in all populations.
+ 3. Remove SNPs with very small GWAS sample sizes (e.g., < 90% of the total GWAS sample size). This step can be omitted if too many SNPs will be removed.
+ 4. The genetic ancestry for each input GWAS summary data needs to be identified. In the case where the training samples of a GWAS consist of multiple ancestry groups, please choose the ancestry group that has the largest sample size. For suggestions on more refined PRS model training using such GWAS summary datasets, please contact our team at pennprs@googlegroups.com.
+
+
+## Citation

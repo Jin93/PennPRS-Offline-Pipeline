@@ -1,0 +1,151 @@
+---
+title: "Single-Ancestry Methods"
+author: "Jin"
+date: "2025-01-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Single-Ancestry PRS Training with Pseudo-Training Methods
+
+Supported methods:
+
+C+T-pseudo
+Lassosum2-pseudo
+LDpred2-pseudo
+PRS-CS-pseudo
+Ensemble PRS combining PRS trained by different methods
+
+## Data Preparation
+
+Prepare and save the input GWAS summary data file in `/PennPRS/${input_GWAS_path}` with file name `${ancestry}_${trait}.txt`. Please refer to the `example_data` in [Example](#example) to prepare the input data files.
+
+Required input GWAS summary data format:
+```
+CHR	SNP	A1	A2	MAF	BETA	SE	P	N
+1	rs3131969	A	G	0.129396	-0.00478692	0.0105404	0.64972	32586
+1	rs2286139	C	T	0.136484	0.0018321	0.0105153	0.861684	31359
+1	rs12562034	A	G	0.103985	-0.0016805	0.0114914	0.883732	32827
+```
+The following columns (and column names) are required for the GWAS summary data files:
+
+ 1. CHR: chromosome, 1, 2, ..., or 22.
+ 2. SNP: SNP RSID (in the format of rsXXXX). If only the position information is available, please impute RSID using reference genotype data of the same genome build.
+ 3. A1: effect allele (the allele which BETA corresponds to).
+ 4. A2: alternative/Other allele.
+ 5. BETA: SNP effect. For binary traits, beta is the log of odds ratio (logOR) from logistic regressions.
+ 6. SE: standard error of beta.
+ 7. P: p-value.
+ 8. N: GWAS sample size by SNP. For binary traits, it is the effective sample size: 4 / (1 / N_control + 1 / N_case); and for continuous traits, it is the total sample size.
+
+
+
+## Preparing SingleAncestry.sh
+
+Prepare a .sh file for submitting job with the following content and save it as `/PennPRS/job_submission/SingleAncestry.sh`. Example SingleAncestry.sh file:
+
+```
+#!/bin/bash
+
+#SBATCH -A bingxin 
+#SBATCH --time=24:00:00
+#SBATCH --job-name=pumas-buxin
+#SBATCH --mail-user=jin.jin@pennmedicine.upenn.edu
+#SBATCH --mail-type=ALL
+#SBATCH --mem=100g                # memory per job
+#SBATCH --nodes=1                # # node per job
+#SBATCH --cpus-per-task=17
+
+# Load modules
+module load r/4.3.1
+
+PennPRS_path=$1
+homedir=$2
+input_GWAS_path=$3
+submissionID=$4
+methods=$5
+trait=$6
+race=$7
+ensemble=$8
+NCORES=$9
+
+Rscript ${PennPRS_path}/code/single-ancestry-step1.R \
+--PennPRS_path ${PennPRS_path} \
+--homedir ${homedir} \
+--input_GWAS_path ${input_GWAS_path} \
+--submissionID ${submissionID} \
+--methods ${methods} \
+--trait ${trait} \
+--race ${race} \
+--ensemble ${ensemble} \
+--NCORES ${NCORES} \
+
+if [ $? -eq 0 ]; then
+# If the first script succeeded, run the second script
+Rscript ${PennPRS_path}code/single-ancestry-step2.R \
+--PennPRS_path ${PennPRS_path} \
+--homedir ${homedir} \
+--submissionID ${submissionID} \
+--methods ${methods} \
+--trait ${trait} \
+--race ${race} \
+--ensemble ${ensemble}
+else
+  # If the first script failed, print an error message and do not proceed
+  echo "Error: First script failed. Second script will not run."
+fi
+```
+
+**Parameters in single-ancestry-step1.R:**
+- homedir (required): path to save the output folder.
+
+- PennPRS_path (required): path to the PennPRS folder.
+
+- input_GWAS_path (required): path in which the input GWAS summary data file is saved.
+
+- submissionID (required): Job ID. This is a unique identifier for the job submission.
+
+- methods (optional): a subset of methods from C+T, lassosum2, and LDpred2, divided by comma. Default: lassosum2.
+
+- trait (required): the name of the trait being analyzed.
+
+- race (required): race of the training GWAS individuals. Options: `EUR` (European), `AFR` (African, African American), `AMR` (Mixed American, Hispanic/Latino), `EAS` (East Asian), or `SAS` (South Asian).<br>
+
+- LDrefpanel (optional): LD reference panel. Options: '1kg' (1000 Genomes Project Phase 3) or 'ukbb' (UK Biobank, will be made available soon).
+
+--k: The number of folds for k-fold Monte Carlo Cross Validation (MCCV) used in PUMAS. Must be an integer greater than or equal to 2.<br>
+--partitions: Specifies the partitioning of the data for subsampling in PUMAS. The format should be '% training, % testing', where % testing equals 1 - % training.<br>
+--ndelta: The number of candidate values for the shrinkage parameter in L2 regularization. Must be a positive integer.<br>
+--nlambda: The number of different candidate values for the lambda parameter (shrinkage parameter in L1 regularization). Must be a positive integer.<br>
+--lambda.min.ratio: Ratio between the lowest and highest candidate values of lambda.<br>
+--Ll: Specifies the length of the path for the tuning parameter lambda in the PROSPER step.<br>
+--Lc: Specifies the length of the path for the tuning parameter c in the PROSPER step.<br>
+--verbose: Controls the verbosity of the output. Set to 0 for no output or 1 to print a log file.<br>
+--temp_path: Specifies the path to the GWAS data after quality control.<br>
+
+## Example
+In this example, we would like to train PRS models for dMRI1 (trait) for the EUR population. First, download the example GWAS summary data file [EUR_dMRI1.txt](https://www.dropbox.com/scl/fi/5nly1s19c8znulvtlfhej/EUR_dMRI1.txt?rlkey=rnbbp264dutoxxnn5mf3ql6aw&st=2wv4yipy&dl=0) and save it under the directory `${input_GWAS_path}`. Create a folder `${homedir}` (e.g., in this example, `/output/`) to save the output. Run the example code below with your own data directories and check if the output files in ${homedir} are consistent with the output files [here](https://www.dropbox.com/scl/fi/44z9rkku5nsc45yvdm6hk/MEBayesSL_example_data_results.zip?rlkey=rrmgjwu4at0nbr4spjj6836l5&dl=0).
+
+Input:
+
+    PennPRS_path='/scratch/bell/bingxin/PennPRS/PennPRS_dir/'
+    homedir='/scratch/bell/bingxin/PennPRS/'
+    input_GWAS_path='/depot/feixue/data/PennPRS/inputfiles/'
+    submissionID='single_ancestry_test'
+    methods='C+T,lassosum2,LDpred2'
+    trait='dMRI1'
+    race='EUR'
+    ensemble=TRUE
+    NCORES=11
+
+Prepare the file `/PennPRS/job_submission/SingleAncestry.sh` (#preparing-singleAncestry.sh) and submit job by:
+
+sbatch /depot/feixue/data/PennPRS/job_submission/Single-Ancestry.sh ${PennPRS_path} ${homedir} ${input_GWAS_path} ${submissionID} ${methods} ${trait} ${race} ${ensemble} ${NCORES} ${nlambda} ${p_seq}
+
+Note: The linux command for submitting jobs may be different from this example. Please modify accordingly.
+
+
+

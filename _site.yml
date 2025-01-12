@@ -1,0 +1,16 @@
+name: "PennPRS"
+output_dir: "docs"
+navbar:
+  title: "PennPRS Offline Pipeline"
+  left:
+  - text: "Overview"
+  href: index.html
+  - text: "Single-Ancestry Methods"
+  href: SingleAncestry.html
+  - text: "Tuning-Parameter-Free Methods"
+  href: TuningFree.html
+  - text: "Multi-Ancestry Methods"
+  href: MultiAncestry.html
+  output:
+  html_document:
+  theme: cosmo

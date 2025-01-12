@@ -1,0 +1,21 @@
+Rscript <path_to_single-ancestry.R> \
+--userID <userID> \
+--submissionID <submissionID> \
+--method <method> \
+--trait <trait> \
+--race <race> \
+--LDrefpanel <LDrefpanel> \
+--k <k> \
+--partitions <partitions> \
+--ndelta <ndelta> \
+--nlambda <nlambda> \
+--lambda.min.ratio <lambda.min.ratio> \
+--alpha <alpha> \
+--p_seq <p_seq> \
+--sparse <sparse> \
+--kb <kb> \
+--Pvalthr <Pvalthr> \
+--R2 <R2> \
+--ensemble <ensemble> \
+--verbose <verbose> \
+--temp_path <temp_path>
